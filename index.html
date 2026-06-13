@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電子印鑑メーカー</title>
+<style>
+  :root{
+    --bg:#f5f5f7; --panel:#ffffff; --line:#d0d0d5; --accent:#c0392b;
+    --text:#222; --muted:#666;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    background:var(--bg); color:var(--text); padding:24px;
+  }
+  h1{font-size:18px; margin:0 0 16px;}
+  .app{
+    display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;
+    max-width:900px; margin:0 auto;
+  }
+  .preview{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px;
+  }
+  canvas{ width:300px; height:300px; }
+  .panel{
+    flex:1; min-width:300px; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; padding:20px;
+  }
+  .seg{ border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:16px; }
+  .seg:last-of-type{ border-bottom:none; }
+  .seg h2{ font-size:14px; margin:0 0 10px; color:var(--accent); }
+  .row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .row label{ width:64px; font-size:13px; color:var(--muted); }
+  input[type=text], select, input[type=date], input[type=number]{
+    flex:1; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    font-size:14px; font-family:inherit;
+  }
+  input[type=number]{ flex:0 0 64px; }
+  .mode{ display:flex; gap:14px; margin-bottom:8px; font-size:13px; }
+  .mode label{ display:flex; align-items:center; gap:4px; width:auto; cursor:pointer; }
+  .buttons{ display:flex; gap:10px; margin-top:8px; }
+  button{
+    flex:1; padding:10px; border:none; border-radius:8px; cursor:pointer;
+    font-size:14px; font-weight:600;
+  }
+  .btn-copy{ background:var(--accent); color:#fff; }
+  .btn-copy:hover{ background:#a93226; }
+  .btn-png{ background:#ecf0f1; color:#333; }
+  .btn-png:hover{ background:#dfe4e6; }
+  .opt{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .opt label{ width:auto; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#333; color:#fff; padding:10px 18px; border-radius:8px;
+    font-size:14px; opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .toast.show{ opacity:1; }
+  .frame-opt{ display:flex; gap:16px; align-items:center; font-size:13px; color:var(--muted); }
+  .frame-opt label{ width:auto; display:flex; align-items:center; gap:4px; }
+  .preset-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:13px; }
+  .preset-row input[type=number]{ flex:0 0 90px; }
+  .preset-row .pname{ width:64px; color:var(--muted); }
+</style>
+</head>
+<body>
+<h1>電子印鑑メーカー</h1>
+<div class="app">
+  <div class="preview">
+    <canvas id="stamp" width="600" height="600"></canvas>
+    <div class="buttons" style="width:300px;">
+      <button class="btn-copy" id="copyBtn">📋 コピー</button>
+      <button class="btn-png" id="pngBtn">PNG保存</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <!-- 1段目 -->
+    <div class="seg" data-seg="0">
+      <h2>1段目</h2>
+      <div class="mode">
+        <label><input type="radio" name="mode0" value="text" checked> テキスト</label>
+        <label><input type="radio" name="mode0" value="date"> 日付</label>
+      </div>
+      <div class="row"><label>テキスト</label><input type="text" class="txt" value="1 セD1"></div>
+      <div class="row"><label>日付</label><input type="date" class="date"></div>
+      <div class="row"><label>書式</label><select class="fmt"></select></div>
+      <div class="row"><label>フォント</label><select class="font"></select></div>
+      <div class="row"><label>サイズ</label><input type="number" class="size" value="72" min="10" max="220"></div>
+      <div class="row"><label>高さ調整</label><input type="range" class="voff" value="0" min="-120" max="120"></div>
+    </div>
+    <!-- 2段目 -->
+    <div class="seg" data-seg="1">
+      <h2>2段目</h2>
+      <div class="mode">
+        <label><input type="radio" name="mode1" value="text"> テキスト</label>
+        <label><input type="radio" name="mode1" value="date" checked> 日付</label>
+      </div>
+      <div class="row"><label>テキスト</label><input type="text" class="txt" value="承認"></div>
+      <div class="row"><label>日付</label><input type="date" class="date"></div>
+      <div class="row"><label>書式</label><select class="fmt"></select></div>
+      <div class="row"><label>フォント</label><select class="font"></select></div>
+      <div class="row"><label>サイズ</label><input type="number" class="size" value="56" min="10" max="220"></div>
+    </div>
+    <!-- 3段目 -->
+    <div class="seg" data-seg="2">
+      <h2>3段目</h2>
+      <div class="mode">
+        <label><input type="radio" name="mode2" value="text" checked> テキスト</label>
+        <label><input type="radio" name="mode2" value="date"> 日付</label>
+      </div>
+      <div class="row"><label>テキスト</label><input type="text" class="txt" value="依田"></div>
+      <div class="row"><label>日付</label><input type="date" class="date"></div>
+      <div class="row"><label>書式</label><select class="fmt"></select></div>
+      <div class="row"><label>フォント</label><select class="font"></select></div>
+      <div class="row"><label>サイズ</label><input type="number" class="size" value="84" min="10" max="220"></div>
+      <div class="row"><label>高さ調整</label><input type="range" class="voff" value="0" min="-120" max="120"></div>
+    </div>
+    <!-- 共通設定 -->
+    <div class="seg">
+      <h2>共通設定</h2>
+      <div class="row"><label>色</label><input type="color" id="color" value="#c0392b" style="flex:0 0 48px;height:32px;padding:2px;"></div>
+      <div class="frame-opt" style="margin-top:8px;">
+        <label><input type="checkbox" id="dblLine" checked> 区切り線</label>
+        <label>枠太さ <input type="number" id="frameW" value="10" min="2" max="30" style="width:56px;"></label>
+      </div>
+      <div class="frame-opt" style="margin-top:8px;">
+        <label><input type="checkbox" id="overflow"> 円からはみ出してもOK（自動縮小しない）</label>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">コピー画像サイズ（5パターン登録 / px）</div>
+        <div id="presets"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">クリップボードにコピーしました</div>
+
+<script>
+const KEY = "denshi_inkan_v1";
+const canvas = document.getElementById("stamp");
+const ctx = canvas.getContext("2d");
+const segs = [...document.querySelectorAll(".seg[data-seg]")];
+
+// コピー画像サイズのプリセット(5個)を生成。ラジオで選択中のものを使用。
+const PRESET_DEFAULTS = [300, 600, 900, 1200, 1500];
+function buildPresets(){
+  const wrap = document.getElementById("presets");
+  wrap.innerHTML = "";
+  for(let i=0;i<5;i++){
+    const row = document.createElement("div");
+    row.className = "preset-row";
+    row.innerHTML =
+      `<label style="display:flex;align-items:center;gap:4px;">`+
+      `<input type="radio" name="preset" value="${i}" ${i===1?"checked":""}>`+
+      `<span class="pname">設定${i+1}</span></label>`+
+      `<input type="number" class="pval" data-i="${i}" value="${PRESET_DEFAULTS[i]}" min="50" max="4000"> px`;
+    wrap.appendChild(row);
+  }
+}
+buildPresets();
+
+function currentOutSize(){
+  const r = document.querySelector('input[name="preset"]:checked');
+  const i = r ? +r.value : 1;
+  const inp = document.querySelector(`.pval[data-i="${i}"]`);
+  return Math.min(4000, Math.max(50, (+inp.value) || 600));
+}
+
+// available date formats (value = template, label shown in dropdown)
+const FORMATS = [
+  "yyyy/MM/dd",
+  "yyyy/M/d",
+  "yyyy-MM-dd",
+  "yyyy.MM.dd",
+  "yyyy年MM月dd日",
+  "M月d日",
+  "yyyy/MM",
+  "Gyy.MM.dd",   // 和暦(令和) 例 R08.05.31
+  "G y 年 M 月 d 日" // 和暦 例 令和 8 年 5 月 31 日
+];
+
+function toWareki(y){
+  // 令和: 2019/05/01〜
+  if(y >= 2019) return { g:"令和", gShort:"R", yy:y - 2018 };
+  if(y >= 1989) return { g:"平成", gShort:"H", yy:y - 1988 };
+  if(y >= 1926) return { g:"昭和", gShort:"S", yy:y - 1925 };
+  return { g:"", gShort:"", yy:y };
+}
+
+function fmtDate(v, fmt){
+  if(!v) return "";
+  fmt = fmt || "yyyy/MM/dd";
+  const [y,m,d] = v.split("-").map(Number);
+  const w = toWareki(y);
+  const pad = n => String(n).padStart(2,"0");
+  // 元号: 「G y」(スペースあり)は正式名「令和」、「Gyy」等は略号「R」
+  const gStr = /G\s/.test(fmt) ? w.g : w.gShort;
+  return fmt
+    .replace(/G/g, gStr)
+    .replace(/yyyy/g, y)
+    .replace(/MM/g, pad(m))
+    .replace(/dd/g, pad(d))
+    .replace(/yy/g, pad(w.yy))   // 和暦の年(2桁)
+    .replace(/M/g, m)
+    .replace(/d/g, d)
+    .replace(/y/g, w.yy);        // 和暦の年(そのまま)
+}
+
+function getSegText(seg){
+  const mode = seg.querySelector('input[type=radio]:checked').value;
+  if(mode === "date"){
+    const dv = seg.querySelector(".date").value || new Date().toISOString().slice(0,10);
+    const fmt = seg.querySelector(".fmt").value;
+    return fmtDate(dv, fmt);
+  }
+  return seg.querySelector(".txt").value;
+}
+
+// selectable fonts (label = 表示名, value = CSS font-family stack)
+const FONTS = [
+  ["明朝体",       '"Hiragino Mincho ProN","Yu Mincho","MS Mincho",serif'],
+  ["ゴシック体",   '"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif'],
+  ["丸ゴシック",   '"Hiragino Maru Gothic ProN","Rounded Mplus 1c","Meiryo",sans-serif'],
+  ["楷書体",       '"Kaisei Decol","BIZ UDMincho","Yu Mincho",serif'],
+  ["教科書体",     '"UD Digi Kyokasho N-R","Yu Mincho",serif'],
+  ["太ゴシック",   '"Hiragino Sans","Yu Gothic",sans-serif'],
+  ["Serif",        'Georgia,"Times New Roman",serif'],
+  ["Sans-serif",   'Helvetica,Arial,sans-serif']
+];
+
+function buildFontOptions(){
+  segs.forEach(seg=>{
+    const sel = seg.querySelector(".font");
+    sel.innerHTML = "";
+    FONTS.forEach(([label,stack])=>{
+      const o = document.createElement("option");
+      o.value = stack; o.textContent = label;
+      o.style.fontFamily = stack;
+      sel.appendChild(o);
+    });
+  });
+}
+
+// populate format dropdowns with a live preview of today's date
+function buildFormatOptions(){
+  const today = new Date().toISOString().slice(0,10);
+  segs.forEach(seg=>{
+    const sel = seg.querySelector(".fmt");
+    sel.innerHTML = "";
+    FORMATS.forEach(f=>{
+      const o = document.createElement("option");
+      o.value = f;
+      o.textContent = fmtDate(today, f);
+      sel.appendChild(o);
+    });
+  });
+}
+
+function draw(){
+  // 出力解像度を設定し、論理600座標へスケールして描画
+  const out = currentOutSize();
+  if(canvas.width !== out){ canvas.width = out; canvas.height = out; }
+  const L = 600;                       // 設計座標(論理サイズ)
+  const s = out / L;
+  ctx.setTransform(s, 0, 0, s, 0, 0);  // コピー画像サイズに合わせて拡大
+
+  const W = L, cx = W/2, cy = W/2;
+  const color = document.getElementById("color").value;
+  const frameW = +document.getElementById("frameW").value;
+  const dbl = document.getElementById("dblLine").checked;
+  const allowOverflow = document.getElementById("overflow").checked;
+  const R = cx - frameW - 6;
+
+  ctx.clearRect(0,0,W,W);
+
+  // outer frame
+  ctx.strokeStyle = color;
+  ctx.lineWidth = frameW;
+  ctx.beginPath();
+  ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.stroke();
+
+  // 3 horizontal bands within the circle
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // 3段を均等な縦間隔に配置。区切り線は R/3 の位置(=各段の境界)。
+  const band = R/3;                       // 1段あたりの高さ
+  const yBase = [cy - 2*band, cy, cy + 2*band];   // 等間隔の中心位置
+
+  // divider lines (chords of the circle) at the band boundaries
+  if(dbl){
+    ctx.lineWidth = Math.max(2, frameW*0.4);
+    [-band, band].forEach(yo=>{
+      const y = cy + yo;
+      const half = Math.sqrt(Math.max(0,R*R - yo*yo));
+      ctx.beginPath();
+      ctx.moveTo(cx - half, y);
+      ctx.lineTo(cx + half, y);
+      ctx.stroke();
+    });
+  }
+
+  segs.forEach((seg,i)=>{
+    const text = getSegText(seg);
+    const family = seg.querySelector(".font").value;
+    const voffEl = seg.querySelector(".voff");
+    const voff = voffEl ? +voffEl.value : 0;   // 1段目・3段目のみ高さ調整
+    let size = +seg.querySelector(".size").value;
+    const y = yBase[i] + voff;
+    // その段の実際の円弧幅から最大表示幅を算出(中央ほど広い)
+    const dy = Math.abs(y - cy);
+    const chordHalf = Math.sqrt(Math.max(0, R*R - dy*dy));
+    const maxW = chordHalf * 2 * 0.9;   // 円内に収めるための余白
+    ctx.font = `bold ${size}px ${family}`;
+    // 円からはみ出す場合のみ縮小（はみ出しOKならスキップ）
+    if(!allowOverflow){
+      while(ctx.measureText(text).width > maxW && size > 8){
+        size -= 2;
+        ctx.font = `bold ${size}px ${family}`;
+      }
+    }
+    ctx.fillText(text, cx, y);
+  });
+}
+
+// ---- persistence (everything except date) ----
+function save(){
+  const data = { color:document.getElementById("color").value,
+    frameW:document.getElementById("frameW").value,
+    dbl:document.getElementById("dblLine").checked,
+    overflow:document.getElementById("overflow").checked,
+    presetVals:[...document.querySelectorAll(".pval")].map(el=>el.value),
+    presetSel:(document.querySelector('input[name="preset"]:checked')||{}).value,
+    segs:[] };
+  segs.forEach(seg=>{
+    data.segs.push({
+      mode: seg.querySelector('input[type=radio]:checked').value,
+      txt: seg.querySelector(".txt").value,
+      fmt: seg.querySelector(".fmt").value,
+      font: seg.querySelector(".font").value,
+      size: seg.querySelector(".size").value,
+      voff: (seg.querySelector(".voff")||{}).value
+    });
+  });
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function load(){
+  try{
+    const data = JSON.parse(localStorage.getItem(KEY));
+    if(!data) return;
+    document.getElementById("color").value = data.color;
+    document.getElementById("frameW").value = data.frameW;
+    document.getElementById("dblLine").checked = data.dbl;
+    if(data.overflow != null) document.getElementById("overflow").checked = data.overflow;
+    if(data.presetVals){
+      document.querySelectorAll(".pval").forEach((el,i)=>{
+        if(data.presetVals[i] != null) el.value = data.presetVals[i];
+      });
+    }
+    if(data.presetSel != null){
+      const r = document.querySelector(`input[name="preset"][value="${data.presetSel}"]`);
+      if(r) r.checked = true;
+    }
+    data.segs.forEach((s,i)=>{
+      const seg = segs[i]; if(!seg) return;
+      seg.querySelector(".txt").value = s.txt;
+      seg.querySelector(".size").value = s.size;
+      if(s.fmt) seg.querySelector(".fmt").value = s.fmt;
+      if(s.font) seg.querySelector(".font").value = s.font;
+      const vEl = seg.querySelector(".voff");
+      if(vEl && s.voff != null) vEl.value = s.voff;
+      const radio = seg.querySelector(`input[value="${s.mode}"]`);
+      if(radio) radio.checked = true;
+    });
+  }catch(e){}
+}
+
+// default today's date for any date fields left empty
+function initDates(){
+  const today = new Date().toISOString().slice(0,10);
+  segs.forEach(seg=>{
+    const d = seg.querySelector(".date");
+    if(!d.value) d.value = today;
+  });
+}
+
+document.querySelectorAll("input, select").forEach(el=>{
+  el.addEventListener("input", ()=>{ save(); draw(); });
+  el.addEventListener("change", ()=>{ save(); draw(); });
+});
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+// execCommand を使った file:// でも動くフォールバック
+function copyViaExecCommand(){
+  return new Promise((resolve)=>{
+    const dataUrl = canvas.toDataURL("image/png");
+    const holder = document.createElement("div");
+    holder.contentEditable = "true";
+    holder.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+    const img = document.createElement("img");
+    img.src = dataUrl;
+    holder.appendChild(img);
+    document.body.appendChild(holder);
+
+    const range = document.createRange();
+    range.selectNode(holder);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    let ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+    sel.removeAllRanges();
+    document.body.removeChild(holder);
+    resolve(ok);
+  });
+}
+
+document.getElementById("copyBtn").addEventListener("click", ()=>{
+  draw();
+  // 1) Safari対応: await せず、Promise を ClipboardItem に直接渡す
+  //    (ユーザー操作の文脈を保つ必要があるため同期的に呼ぶ)
+  if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{
+      const item = new ClipboardItem({
+        "image/png": new Promise(resolve=>{
+          canvas.toBlob(b=> resolve(b), "image/png");
+        })
+      });
+      navigator.clipboard.write([item]).then(()=>{
+        showToast("クリップボードにコピーしました");
+      }).catch(()=>{
+        fallbackCopy();
+      });
+      return;
+    }catch(e){ /* fall through */ }
+  }
+  fallbackCopy();
+});
+
+function fallbackCopy(){
+  // 2) execCommand フォールバック
+  copyViaExecCommand().then(ok=>{
+    showToast(ok ? "クリップボードにコピーしました"
+                 : "コピー不可：PNG保存をご利用ください");
+  }).catch(()=>{
+    showToast("コピー不可：PNG保存をご利用ください");
+  });
+}
+
+document.getElementById("pngBtn").addEventListener("click", ()=>{
+  const a = document.createElement("a");
+  a.download = "inkan.png";
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+});
+
+buildFormatOptions();
+buildFontOptions();
+load();
+initDates();
+draw();
+</script>
+</body>
+</html>
